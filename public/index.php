@@ -29,12 +29,24 @@ $app->get('/', function (Request $request, Response $response, $args) {
     $bigCommerceConfig = json_decode(file_get_contents($bigCommerceConfigFile));
     $shipStationCommerceConfig = json_decode(file_get_contents($shipStationCommerceConfigFile));
 
-    $group = 
+    $totalPages = 1;
+    $currentPage = 1;
+    $users = array();
+    do
+    {
+        $group = 
         (new BigCommerceConsumer(
             $bigCommerceConfig->baseUrl,
             $bigCommerceConfig->store,
             $bigCommerceConfig->access_token))
-        ->getCustomerGroup(12);
+        ->getCustomerGroup(12, $currentPage, 250);
+
+        $users = array_merge($users, $group->response->data);
+
+        $currentPage = $group->response->meta->pagination->current_page + 1;
+        $totalPages = $group->response->meta->pagination->total_pages;
+
+    } while ($currentPage <= $totalPages);
 
     $orders = 
         (new BigCommerceConsumer(
@@ -46,7 +58,7 @@ $app->get('/', function (Request $request, Response $response, $args) {
     $shipments = 
         (new ShipStationConsumer($shipStationCommerceConfig->baseUrl, $shipStationCommerceConfig->api_key,$shipStationCommerceConfig->api_secret))
         ->getShipments(1, 1);
-    return $response->withJson([$group, $orders, $shipments]);
+    return $response->withJson([$users, $orders, $shipments]);
 });
 
 $app->run();

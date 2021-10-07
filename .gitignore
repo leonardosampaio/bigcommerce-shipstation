@@ -1,7 +1,10 @@
+vendor
+.vscode
 *.txt
-*.json
 .history
 test.*
+.history
+configuration/*.json
 
 # Cache and logs (Symfony2)
 /app/cache/*

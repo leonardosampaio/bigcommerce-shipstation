@@ -21,12 +21,14 @@ class BigCommerceConsumer {
     /**
      * https://developer.bigcommerce.com/api-reference/store-management/customers-v3/customers/customersget
      */
-    public function getCustomerGroup($id)
+    public function getCustomerGroup($id, $page, $pageSize)
     {
         $url = sprintf(
             $this->baseUrl . 
-            "/%s/v3/customers?customer_group_id:in=%d",
+            "/%s/v3/customers?page=%d&limit=%d&customer_group_id:in=%d",
             $this->storeHash,
+            (int)$page,
+            (int)$pageSize,
             (int)$id
         );
 

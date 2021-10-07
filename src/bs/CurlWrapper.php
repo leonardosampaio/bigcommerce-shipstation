@@ -2,6 +2,8 @@
 
 namespace bs;
 
+use stdClass;
+
 class CurlWrapper {
 
     public function get($url, $headers = null)
@@ -28,11 +30,12 @@ class CurlWrapper {
             $response = curl_error($consumer);
             curl_close($consumer); 
         }
-        return [
-            'httpcode'=>$httpcode,
-            'response'=>
-                in_array(substr($response,0,1),['{','[']) ?
-                    json_decode($response) : $response
-        ];
+
+        $result = new stdClass();
+        $result->httpcode = $httpcode;
+        $result->response = in_array(substr($response,0,1),['{','[']) ?
+            json_decode($response) : $response;
+
+        return $result;
     }
 }

@@ -1,0 +1,14 @@
+{
+    "require": {
+        "slim/http": "^1.2",
+        "slim/psr7": "^1.4",
+        "slim/slim": "^4.8",
+        "phpmailer/phpmailer": "^6.5"
+    },
+    "autoload": {
+        "psr-0": {
+            "bs": "src/"
+        }
+    }
+    
+}
