@@ -1,0 +1,5 @@
+{
+    "store":"",
+    "baseUrl":"https://api.bigcommerce.com/stores",
+    "access_token":""
+}

@@ -1,3 +1,8 @@
+*.txt
+*.json
+.history
+test.*
+
 # Cache and logs (Symfony2)
 /app/cache/*
 /app/logs/*
