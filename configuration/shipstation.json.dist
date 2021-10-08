@@ -1,5 +1,6 @@
 {
     "baseUrl":"https://ssapi.shipstation.com",
     "api_key":"",
-    "api_secret":""
+    "api_secret":"",
+    "rateLimitSleepTime":1.5
 }

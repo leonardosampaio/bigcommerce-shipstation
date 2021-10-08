@@ -39,7 +39,14 @@ $app->get('/', function (Request $request, Response $response, $args) {
             $bigCommerceConfig->baseUrl,
             $bigCommerceConfig->store,
             $bigCommerceConfig->access_token))
-        ->getCustomerGroup(12, $currentPage, 250);
+        ->getCustomersInGroup(12, $currentPage, 250);
+
+        if (isset($bigCommerceConfig->rateLimitSleepTime) &&
+            $bigCommerceConfig->rateLimitSleepTime > 0)
+        {
+            //seconds
+            sleep($bigCommerceConfig->rateLimitSleepTime);
+        }
 
         $users = array_merge($users, $group->response->data);
 
@@ -55,10 +62,31 @@ $app->get('/', function (Request $request, Response $response, $args) {
             $bigCommerceConfig->access_token))
         ->getOrders(1, 1);
 
-    $shipments = 
-        (new ShipStationConsumer($shipStationCommerceConfig->baseUrl, $shipStationCommerceConfig->api_key,$shipStationCommerceConfig->api_secret))
-        ->getShipments(1, 1);
-    return $response->withJson([$users, $orders, $shipments]);
+    //$orders = array();
+
+    $totalPages = 1;
+    $currentPage = 1;
+    $allShipments = array();
+    do {
+        $shipments = 
+            (new ShipStationConsumer($shipStationCommerceConfig->baseUrl, $shipStationCommerceConfig->api_key,$shipStationCommerceConfig->api_secret))
+            ->getShipments($currentPage, 250);
+
+        if (isset($shipStationCommerceConfig->rateLimitSleepTime) &&
+            $shipStationCommerceConfig->rateLimitSleepTime > 0)
+        {
+            //seconds
+            sleep($shipStationCommerceConfig->rateLimitSleepTime);
+        }
+
+        $allShipments = array_merge($allShipments, $shipments->response->shipments);
+
+        $currentPage = $shipments->response->page + 1;
+        $totalPages = $shipments->response->pages;
+
+    } while($currentPage <= $totalPages);
+
+    return $response->withJson([$users, $orders, $allShipments]);
 });
 
 $app->run();

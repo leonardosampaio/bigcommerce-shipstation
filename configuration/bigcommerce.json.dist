@@ -1,5 +1,6 @@
 {
     "store":"",
     "baseUrl":"https://api.bigcommerce.com/stores",
-    "access_token":""
+    "access_token":"",
+    "rateLimitSleepTime":0
 }
