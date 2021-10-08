@@ -16,11 +16,12 @@ class ShipStationConsumer {
     /**
      * https://www.shipstation.com/docs/api/shipments/list/
     */
-    public function getShipments($page, $pageSize)
+    public function getShipments($orderId, $page, $pageSize)
     {
         $url = sprintf(
             $this->baseUrl . 
-            '/shipments?includeShipmentItems=true&page=%d&pageSize=%d&sortBy=CreateDate&sortDir=DESC',
+            '/shipments?orderId=%s&includeShipmentItems=true&page=%d&pageSize=%d&sortBy=CreateDate&sortDir=DESC',
+            (int)$orderId,
             (int)$page,
             (int)$pageSize
         );
