@@ -20,7 +20,7 @@ class ShipStationConsumer {
     {
         $url = sprintf(
             $this->baseUrl . 
-            '/shipments?orderId=%s&includeShipmentItems=true&page=%d&pageSize=%d&sortBy=CreateDate&sortDir=DESC',
+            '/shipments?orderNumber=%s&includeShipmentItems=true&page=%d&pageSize=%d&sortBy=CreateDate&sortDir=DESC',
             (int)$orderId,
             (int)$page,
             (int)$pageSize

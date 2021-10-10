@@ -28,4 +28,9 @@ class Configuration {
     {
         return $this->getJsonFromConfigFile(__DIR__.'/../../configuration/shipstation.json');
     }
+
+    public function getApplication()
+    {
+        return $this->getJsonFromConfigFile(__DIR__.'/../../configuration/application.json');
+    }
 }
