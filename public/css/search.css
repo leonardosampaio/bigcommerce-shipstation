@@ -1,6 +1,6 @@
 body {
     color: #566787;
-    background: #f5f5f5;
+    background: white;
     font-family: 'Roboto', sans-serif;
 }
 .table-responsive {
@@ -145,4 +145,12 @@ border: none;
 
 .multiselect {
     height: 155px !important;
+}
+
+th {
+    width: 10px;
+}
+
+.scroll{
+    overflow-x: auto;
 }

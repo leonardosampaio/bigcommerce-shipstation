@@ -21,20 +21,6 @@ class BigCommerceConsumer {
     /**
      * https://developer.bigcommerce.com/api-reference/store-management/orders/order-products/getallorderproducts
      */
-    public function getProductsInOrder($orderId, $page, $pageSize)
-    {
-        $url = sprintf(
-            $this->baseUrl . 
-            "/%s/v2/orders/%d/products?page=%d&limit=%d",
-            $this->storeHash,
-            (int)$orderId,
-            (int)$page,
-            (int)$pageSize
-        );
-
-        return (new CurlWrapper())->get($url, $this->defaultHeader);
-    }
-
     public function getProductsInOrders($ordersIds, $page, $pageSize)
     {
         $urls = array();
@@ -90,7 +76,7 @@ class BigCommerceConsumer {
                 $this->storeHash,
                 $minDateCreated,
                 $maxDateCreated,
-                (int)$beginPage,
+                (int)$page,
                 (int)$pageSize
             );
             $urls[$page] = $url;

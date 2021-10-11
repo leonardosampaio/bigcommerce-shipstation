@@ -8,7 +8,9 @@ use bs\ShipStationConsumer;
 use bs\Configuration;
 use bs\Progress;
 
+ini_set('memory_limit', '1024M');
 date_default_timezone_set('America/Denver');
+ob_implicit_flush();
 
 $app = AppFactory::create();
 
@@ -27,9 +29,9 @@ function getGroup($bigCommerceConfig, $groupId, $pageSize, $request, $response)
     $group = array();
     if ($useCacheGroup && file_exists($groupCacheFile))
     {
-        $group = $response->withJson(
-            json_decode(
-                file_get_contents($groupCacheFile)));
+        (new Progress())->update('customers in group', 100);
+        $group = json_decode(
+                file_get_contents($groupCacheFile));
     }
     else
     {
@@ -37,6 +39,8 @@ function getGroup($bigCommerceConfig, $groupId, $pageSize, $request, $response)
         $currentPage = 1;
         do
         {
+            echo "\n";
+            
             $lastPage = 1;
             if ($currentPage > 1)
             {
@@ -56,7 +60,7 @@ function getGroup($bigCommerceConfig, $groupId, $pageSize, $request, $response)
             }
             
             $totalPages = end($multiGroup)->meta->pagination->total_pages;
-            (new Progress())->update('customers-in-group', (int)($currentPage / $totalPages * 100));
+            (new Progress())->update('customers in group', (int)($currentPage / $totalPages * 100));
             $currentPage = $totalPages != 0 ? end($multiGroup)->meta->pagination->current_page + 1 : 1;
     
             if ($currentPage != $totalPages &&
@@ -69,44 +73,51 @@ function getGroup($bigCommerceConfig, $groupId, $pageSize, $request, $response)
     
         } while ($currentPage <= $totalPages);
     
-        (new Progress())->update('customers-in-group', 100);
-
-        file_put_contents(
-            $groupCacheFile,
-            json_encode($group)
-        );
+        if ($group)
+        {
+            file_put_contents(
+                $groupCacheFile,
+                json_encode($group)
+            );
+        }
     }
     return $group;
 }
 
-function getShipment($shipStationCommerceConfig, $orderNumber, $request)
+function getShipment($shipStationCommerceConfig, $createDateStart, $createDateEnd, $request)
 {
-    $cacheFile = __DIR__.'/../cache/shipment_'.$orderNumber.'.json';
+    $cacheFile = __DIR__.'/../cache/shipment_'.$createDateStart.'_'.$createDateEnd.'.json';
 
     $useCache = isset($request->getQueryParams()['shipmentsUsingCache']) ?
         $request->getQueryParams()['shipmentsUsingCache'] == 'true' : null;
 
     if ($useCache && file_exists($cacheFile))
     {
+        (new Progress())->update('shipments from orders', 100);
         return json_decode(
                 file_get_contents($cacheFile));
     }
+
+    $createDateStart .= '%2000:00:00';
+    $createDateEnd .= '%2023:59:59';
 
     $totalPages = 1;
     $currentPage = 1;
     $allShipments = array();
     do {
+        echo "\n";
+
         $shipments = 
             (new ShipStationConsumer(
                 $shipStationCommerceConfig->baseUrl,
                 $shipStationCommerceConfig->api_key,
                 $shipStationCommerceConfig->api_secret))
-            ->getShipments($orderNumber, $currentPage, 250);
+            ->getShipments($createDateStart, $createDateEnd, $currentPage, $shipStationCommerceConfig->pageSize);
 
         $allShipments = array_merge($allShipments, $shipments->response->shipments);
 
         $totalPages = $shipments->response->pages;
-        $currentPage = $totalPages != 0 ? $shipments->response->page + 1 : 1;
+        (new Progress())->update('shipments from orders', (int)($currentPage / $totalPages * 100));
         
         if ($totalPages != 0 &&
             $currentPage != $totalPages && 
@@ -117,12 +128,17 @@ function getShipment($shipStationCommerceConfig, $orderNumber, $request)
             sleep($shipStationCommerceConfig->rateLimitSleepTime);
         }
 
+        $currentPage = $totalPages != 0 ? $shipments->response->page + 1 : 1;
+
     } while($currentPage <= $totalPages);
 
-    file_put_contents(
-        $cacheFile,
-        json_encode($allShipments)
-    );
+    if ($allShipments)
+    {
+        file_put_contents(
+            $cacheFile,
+            json_encode($allShipments)
+        );
+    }
 
     return $allShipments;
 }
@@ -153,13 +169,18 @@ function getProducts($bigCommerceConfig, $ordersIds, $request)
     //all from cache
     if (!$ordersIds)
     {
+        (new Progress())->update('products in orders', 100);
         return $totalProducts;
     }
 
     $currentIndex = 1;
     do
     {
+        echo "\n";
+
         $ids = array_slice($ordersIds, $currentIndex-1, 5);
+
+        (new Progress())->update('products in orders', (int)(($currentIndex-1) / sizeof($ordersIds) * 100));
 
         $multiProducts = 
         (new BigCommerceConsumer(
@@ -173,10 +194,13 @@ function getProducts($bigCommerceConfig, $ordersIds, $request)
         foreach($multiProducts as $orderId => $products)
         {
             $cacheFile = __DIR__.'/../cache/products-in-order_'.$orderId.'.json';
-            file_put_contents(
-                $cacheFile,
-                json_encode($products)
-            );
+            if ($products)
+            {
+                file_put_contents(
+                    $cacheFile,
+                    json_encode($products)
+                );
+            }
             $totalProducts[$orderId] = $products;
         }
         
@@ -196,6 +220,8 @@ function getProducts($bigCommerceConfig, $ordersIds, $request)
 }
 
 $app->get('/orders', function (Request $request, Response $response, $args) {
+
+    (new Progress())->clean();
 
     session_start();
     if (!isset($_SESSION['user']))
@@ -232,6 +258,7 @@ $app->get('/orders', function (Request $request, Response $response, $args) {
 
     if ($ordersUsingCache && file_exists($ordersCacheFile))
     {
+        (new Progress())->clean();
         return $response->withJson(
             json_decode(
                 file_get_contents($ordersCacheFile)));
@@ -253,11 +280,18 @@ $app->get('/orders', function (Request $request, Response $response, $args) {
     $pageSize = $bigCommerceConfig->pageSize;
 
     $group = getGroup($bigCommerceConfig, $groupId, $pageSize, $request, $response);
+    $customersIds = array();
+    foreach($group as $customer)
+    {
+        $customersIds[] = $customer->id;
+    }
 
     $currentPage = 1;
     $totalOrders = array();
     do
     {
+        echo "\n";
+
         $lastPage = $currentPage+4;
 
         (new Progress())->update('orders', $currentPage);
@@ -275,14 +309,11 @@ $app->get('/orders', function (Request $request, Response $response, $args) {
         {
             foreach($orders as $order)
             {
-                foreach($group as $customer)
+                $totalOrders[$order->id] = $order;
+
+                if (isset($customersIds[$order->customer_id]))
                 {
-                    //only orders from customers in group 12
-                    if ($customer->id == $order->customer_id)
-                    {
-                        $totalOrders[$order->id] = $order;
-                        break;
-                    }
+                    $totalOrders[$order->id]->group = 12;
                 }
             }
         }
@@ -301,38 +332,46 @@ $app->get('/orders', function (Request $request, Response $response, $args) {
 
     $productsFromOrders = getProducts($bigCommerceConfig, array_keys($totalOrders), $request);
 
-    $count = 1;
+    $shipmentsBetweenDates = getShipment(
+        $shipStationCommerceConfig,
+        $request->getQueryParams()['minDateCreated'],
+        $request->getQueryParams()['maxDateCreated'],
+        $request);
+    $shipments = array();    
+    foreach ($shipmentsBetweenDates as $shipment)
+    {
+        if (isset($shipments[$shipment->orderNumber]))
+        {
+            $shipments[$shipment->orderNumber] =  array();
+        }
+
+        $shipments[$shipment->orderNumber][] = $shipment;
+    }    
+
     foreach($totalOrders as $k => &$order)
     {
+        echo "\n";
+
         if (isset($productsFromOrders[$order->id]))
         {
             $order->products = $productsFromOrders[$order->id];
         }
 
-        //slow part
-        $shipStationInfo = getShipment($shipStationCommerceConfig, $order->id, $request);
-        if (isset($shipStationInfo) && !empty($shipStationInfo))
+        if (isset($shipments[$order->id]))
         {
-            $order->shipStation = $shipStationInfo;
-        }
-
-        (new Progress())->update('shipment', (int)($count / sizeof($totalOrders) * 100));
-        $count++;
-
-        if (isset($shipStationCommerceConfig->rateLimitSleepTime) &&
-            $shipStationCommerceConfig->rateLimitSleepTime > 0)
-        {
-            //seconds
-            sleep($shipStationCommerceConfig->rateLimitSleepTime);
+            $order->shipStation = array_values($shipments[$order->id]);
         }
     }
 
-    (new Progress())->update('shipment', 100);
+    if ($totalOrders)
+    {
+        file_put_contents(
+            $ordersCacheFile,
+            json_encode($totalOrders)
+        );
+    }
 
-    file_put_contents(
-        $ordersCacheFile,
-        json_encode($totalOrders)
-    );
+    (new Progress())->clean();
 
     return $response->withJson($totalOrders);
 });

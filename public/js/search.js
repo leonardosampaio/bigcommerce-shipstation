@@ -1,4 +1,30 @@
 var modal = null;
+var controller = null;
+var signal = null;
+
+function isJson(str) {
+    try {
+        return JSON.parse(str);
+    } catch (e) {
+        return false;
+    }
+}
+
+function abortFetching() {
+    console.log('Now aborting');
+    finished = true;
+    controller.abort();
+    modal.hide();
+}
+function initSignal()
+{
+    controller = new AbortController();
+    signal = controller.signal;
+    signal.addEventListener("abort", () => {
+        console.log("Fetch aborted");
+    });
+    finished = false;
+}
 
 function formatCurrency(marketCap)
 {
@@ -59,133 +85,130 @@ function download_table_as_csv(table_id, separator = ',') {
     document.body.removeChild(link);
 }
 
+var finished = false;
+async function loadProgress() {
+    const response = await fetch('./progress.php');
+    const progress = await response.json();
+
+    console.log(progress);
+
+    if (progress.key && progress.value)
+    {
+        let complement = '';
+        if (progress.key == 'orders')
+        {
+            complement = ' (page '+progress.value+')';
+        }
+        else {
+            complement = ' ('+progress.value+'%)';
+        }
+    
+        document.getElementById('statusText').innerText = 
+            'Retrieving ' + progress.key + complement;
+    }
+
+    
+    setTimeout(function(){ if (!finished) loadProgress(); }, 1000);
+}
+
 async function search()
 {
-    //fixed
-    const groupId = 12;
-    
-    let customersInGroupUrl = './customers-in-group?' + 
-    'useCache=' + document.getElementById('groupUsingCache').checked + 
-    '&groupId=' + groupId
-    ;
-    
-    const customersRawResponse = await fetch(customersInGroupUrl, {
-        method: 'GET',
-        headers: {
-            'Accept': 'application/json'
-        }
-    }).then(function(response) {
-        return response;
-    });
-    
-    let customers = await customersRawResponse.json();
-    
     let ordersUrl = './orders?' + 
-        'useCache=' + document.getElementById('ordersUsingCache').checked + 
+        'ordersUsingCache=' + document.getElementById('ordersUsingCache').checked + 
+        '&groupUsingCache=' + document.getElementById('groupUsingCache').checked + 
+        '&shipmentsUsingCache=' + document.getElementById('shipmentsUsingCache').checked + 
+        '&productsUsingCache=' + document.getElementById('productsUsingCache').checked + 
         '&minDateCreated=' + moment(document.getElementById('begin').value, "MM/DD/YYYY").format("YYYY-MM-DD") + 
         '&maxDateCreated=' + moment(document.getElementById('end').value, "MM/DD/YYYY").format("YYYY-MM-DD")
     ;
 
+    loadProgress();
     const ordersRawResponse = await fetch(ordersUrl, {
         method: 'GET',
-        headers: {
-        'Accept': 'application/json'
-        }
+        headers: {'Accept': 'application/json'},
+        signal: signal
     }).then(function(response) {
         return response;
     });
 
-    const content = await ordersRawResponse.json();
+    const textContent = await ordersRawResponse.text();
+    finished = true;
 
-    if (content.orders)
+    let content = isJson(textContent);
+    if (content.error)
+    {
+        alert(content.error);
+    }
+    else
     {
         //remove old results
         Array.prototype.forEach.call( document.querySelectorAll('.novo'), function( node ) {
             node.parentNode.removeChild( node );
         });
 
-        document.querySelector('#totalResults').textContent = content.orders.length;
-
-        let productsPromises = [];
-        let shipmentsPromises = [];
-
         let count = 0;
-        content.orders.forEach((order) => {
+        for (const id in content)
+        {
+            let order = content[id];
 
-            for (let customer of customers.customers)
+            let totalShipStationCost = 0;
+            if (order.shipStation)
             {
-                if (customer.id == order.customer_id)
-                {
-                    let productsUrl = './products-in-order?' + 
-                        'useCache=' + document.getElementById('productsUsingCache').checked + 
-                        '&orderId=' + order.id
-                    ;
-
-                    productsPromises.push(productsUrl);
-
-                    let shipmentUrl = './shipment?' + 
-                        'useCache=' + document.getElementById('shipmentsUsingCache').checked + 
-                        '&orderNumber=' + order.id
-                    ;
-
-                    shipmentsPromises.push(shipmentUrl);
-
-                    let novo = document.querySelector('.template').cloneNode(true);
-
-                    novo.classList.remove('template');
-                    novo.classList.add('novo');
-
-                    novo.querySelector('.number').textContent = (count+1);
-                    count++;
-                    novo.querySelector('.name').textContent = order.end_name;
-                    novo.querySelector('.website').innerHTML = order.end_website ? splitWebsites(order.end_website) : '';
-                    // novo.querySelector('.orderbase_url').href = 'https://www.orderbase.com/price/' + order.end_name.toLowerCase().replace(' ', '-');
-
-                    // novo.querySelector('.description').textContent = order.end_description;
-
-                    // novo.querySelector('.base').textContent = order.end_base;
-
-                    // let marketCap = order.end_market_cap && order.end_market_cap > 0 
-                    //     ? order.end_market_cap : '';
-
-                    // if (marketCap)
-                    // {
-                    //     marketCap = formatCurrency(marketCap)
-                    // }
-
-                    // novo.querySelector('.market_cap').textContent = marketCap;
-                    // novo.querySelector('.launched_at').textContent = 
-                    //     order.end_launched_at ? moment(order.end_launched_at, "YYYY-MM-DD").format("DD/MM/YYYY") : '';
-
-                    document.getElementById('tableBody').appendChild(novo);
-                    break;
-                }
+                order.shipStation.forEach((shipment)=>{
+                    totalShipStationCost+=shipment.shipmentCost;
+                });
             }
-        });
 
-        Promise.all(productsPromises.map(u=>{
-            // console.log('product ' + i);
-            return fetch(u);
-        }))
-        .then(responses => {
-            Promise.all(responses.map(res => res.json()))
-        })
-        .then(jsons => {
-            console.log(jsons);
-        });
+            let customerGroup = order.group ? order.group : '';
 
-        Promise.all(shipmentsPromises.map(u=>fetch(u))).then(responses =>
-            Promise.all(responses.map(res => res.json()))
-        ).then(jsons => {
-            console.log(jsons);
-            modal.hide();
-        });
+            let novo = document.querySelector('.template').cloneNode(true);
+            novo.classList.remove('template');
+            novo.classList.add('novo');
+            novo.querySelector('.number').textContent = (count+1);
+            novo.querySelector('.customerGroup').textContent = customerGroup;
+            novo.querySelector('.id').textContent = id;
+            novo.querySelector('.base_shipping_cost').textContent = order.base_shipping_cost;
+            novo.querySelector('.subtotal_ex_tax').textContent = order.subtotal_ex_tax;
+            novo.querySelector('.total_ex_tax').textContent = order.total_ex_tax;
+            novo.querySelector('.total_tax').textContent = order.total_tax;
+            novo.querySelector('.total_inc_tax').textContent = order.total_inc_tax;
+            novo.querySelector('.store_credit_amount').textContent = order.store_credit_amount;
+            novo.querySelector('.discount_amount').textContent = order.discount_amount;
+            novo.querySelector('.shipmentCost').textContent = 
+                totalShipStationCost != 0 ? totalShipStationCost : '';
+            
 
+            if (order.products)
+            {
+                console.log('products',order.products);
+            }
+
+            count++;
+
+            // novo.querySelector('.name').textContent = order.end_name;
+            // novo.querySelector('.website').innerHTML = order.end_website ? splitWebsites(order.end_website) : '';
+            // novo.querySelector('.orderbase_url').href = 'https://www.orderbase.com/price/' + order.end_name.toLowerCase().replace(' ', '-');
+
+            // novo.querySelector('.description').textContent = order.end_description;
+
+            // novo.querySelector('.base').textContent = order.end_base;
+
+            // let marketCap = order.end_market_cap && order.end_market_cap > 0 
+            //     ? order.end_market_cap : '';
+
+            // if (marketCap)
+            // {
+            //     marketCap = formatCurrency(marketCap)
+            // }
+
+            // novo.querySelector('.market_cap').textContent = marketCap;
+            // novo.querySelector('.launched_at').textContent = 
+            //     order.end_launched_at ? moment(order.end_launched_at, "YYYY-MM-DD").format("DD/MM/YYYY") : '';
+
+            document.getElementById('tableBody').appendChild(novo);
+        }
     }
-    else if (content.error)
-    {
-        alert(content.error);
-    }
+    modal.hide();
 }
 
 window.onload = () => {
@@ -211,6 +234,7 @@ window.onload = () => {
 
     document.getElementById('submit').addEventListener("click", (e)=>{
         e.preventDefault();
+        initSignal();
         modal.show();
     });
 
