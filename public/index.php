@@ -19,17 +19,14 @@ $app->setBasePath('/bs');
 
 $app->addErrorMiddleware(true, true, true);
 
-function getGroup($bigCommerceConfig, $groupId, $pageSize, $request, $response)
+function getCustomersInGroup($bigCommerceConfig, $groupId, $pageSize, $useCache)
 {
     $groupCacheFile = __DIR__.'/../cache/customers-in-group_'.$groupId.'.json';
 
-    $useCacheGroup = isset($request->getQueryParams()['groupUsingCache']) ?
-        $request->getQueryParams()['groupUsingCache'] == 'true' : null;
-
     $group = array();
-    if ($useCacheGroup && file_exists($groupCacheFile))
+    if ($useCache && file_exists($groupCacheFile))
     {
-        (new Progress())->update('customers in group', 100);
+        (new Progress())->update('customers in group ' . $groupId, 100);
         $group = json_decode(
                 file_get_contents($groupCacheFile));
     }
@@ -60,7 +57,7 @@ function getGroup($bigCommerceConfig, $groupId, $pageSize, $request, $response)
             }
             
             $totalPages = end($multiGroup)->meta->pagination->total_pages;
-            (new Progress())->update('customers in group', (int)($currentPage / $totalPages * 100));
+            (new Progress())->update('customers in group ' . $groupId, (int)($currentPage / ($totalPages ? $totalPages : 1) * 100));
             $currentPage = $totalPages != 0 ? end($multiGroup)->meta->pagination->current_page + 1 : 1;
     
             if ($currentPage != $totalPages &&
@@ -82,6 +79,78 @@ function getGroup($bigCommerceConfig, $groupId, $pageSize, $request, $response)
         }
     }
     return $group;
+}
+
+function getCustomersGroups($bigCommerceConfig, $pageSize, $useCache)
+{
+    $groupCacheFile = __DIR__.'/../cache/customers-groups.json';
+
+    if ($useCache && file_exists($groupCacheFile))
+    {
+        return json_decode(
+                file_get_contents($groupCacheFile));
+    }
+
+    $currentPage = 1;
+    $customersGroups = array();
+    do
+    {
+        echo "\n";
+
+        (new Progress())->update('customers in groups', $currentPage);
+
+        $lastPage = $currentPage+4;
+
+        (new Progress())->update('orders', $currentPage);
+
+        $multiGroups = 
+        (new BigCommerceConsumer(
+            $bigCommerceConfig->baseUrl,
+            $bigCommerceConfig->store,
+            $bigCommerceConfig->access_token))
+        ->getCustomerGroups(
+            $currentPage, $lastPage, $pageSize);
+
+        $allPagesHaveGroups = !empty((array)$multiGroups) && isset($multiGroups[$lastPage]);
+        foreach($multiGroups as $page => $groups)
+        {
+            foreach($groups as $group)
+            {
+                //TODO only $group->id == 12?
+                $customers = getCustomersInGroup(
+                    $bigCommerceConfig, $group->id, $pageSize, $useCache);
+                foreach($customers as $customer)
+                {
+                    if (!isset($customersGroups[$customer->id]))
+                    {
+                        $customersGroups[$customer->id] = array();
+                    }
+                    $customersGroups[$customer->id][] = $group->id;
+                }
+            }
+        }
+        
+        $currentPage += 5;
+
+        if ($allPagesHaveGroups &&
+            isset($bigCommerceConfig->rateLimitSleepTime) &&
+            $bigCommerceConfig->rateLimitSleepTime > 0)
+        {
+            //seconds
+            sleep($bigCommerceConfig->rateLimitSleepTime);
+        }
+
+    } while ($allPagesHaveGroups);
+    
+    if ($customersGroups)
+    {
+        file_put_contents(
+            $groupCacheFile,
+            json_encode($customersGroups)
+        );
+    }
+
+    return $customersGroups;
 }
 
 function getShipment($shipStationCommerceConfig, $createDateStart, $createDateEnd, $request)
@@ -117,7 +186,7 @@ function getShipment($shipStationCommerceConfig, $createDateStart, $createDateEn
         $allShipments = array_merge($allShipments, $shipments->response->shipments);
 
         $totalPages = $shipments->response->pages;
-        (new Progress())->update('shipments from orders', (int)($currentPage / $totalPages * 100));
+        (new Progress())->update('shipments from orders', (int)($currentPage / ($totalPages ? $totalPages : 1) * 100));
         
         if ($totalPages != 0 &&
             $currentPage != $totalPages && 
@@ -276,15 +345,12 @@ $app->get('/orders', function (Request $request, Response $response, $args) {
         return $response->withJson($shipStationCommerceConfig);
     }
 
-    $groupId = $bigCommerceConfig->groupId;
     $pageSize = $bigCommerceConfig->pageSize;
 
-    $group = getGroup($bigCommerceConfig, $groupId, $pageSize, $request, $response);
-    $customersIds = array();
-    foreach($group as $customer)
-    {
-        $customersIds[] = $customer->id;
-    }
+    $groupUsingCache = isset($request->getQueryParams()['groupUsingCache']) ?
+        $request->getQueryParams()['groupUsingCache'] == 'true' : null;
+
+    $customersGroups = getCustomersGroups($bigCommerceConfig, $pageSize, $groupUsingCache);
 
     $currentPage = 1;
     $totalOrders = array();
@@ -311,9 +377,9 @@ $app->get('/orders', function (Request $request, Response $response, $args) {
             {
                 $totalOrders[$order->id] = $order;
 
-                if (isset($customersIds[$order->customer_id]))
+                if (isset($customersGroups[$order->customer_id]))
                 {
-                    $totalOrders[$order->id]->group = 12;
+                    $totalOrders[$order->id]->group = implode(',',$customersGroups[$order->customer_id]);
                 }
             }
         }

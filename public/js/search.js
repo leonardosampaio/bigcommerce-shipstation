@@ -108,7 +108,7 @@ async function loadProgress() {
     }
 
     
-    setTimeout(function(){ if (!finished) loadProgress(); }, 1000);
+    setTimeout(function(){ if (!finished) loadProgress(); }, 5000);
 }
 
 async function search()

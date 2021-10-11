@@ -85,4 +85,26 @@ class BigCommerceConsumer {
         return (new CurlWrapper())->multiGet($urls, $this->defaultHeader);
 
     }
+
+    /**
+     * https://developer.bigcommerce.com/api-reference/store-management/customers-v2/customer-groups/getallcustomergroups
+     */
+    public function getCustomerGroups($beginPage, $endPage, $pageSize)
+    {
+        $urls = array();
+        for ($page=$beginPage; $page <= $endPage; $page++)
+        {
+            $url = sprintf(
+                $this->baseUrl . 
+                "/%s/v2/customer_groups?page=%d&limit=%d",
+                $this->storeHash,
+                (int)$page,
+                (int)$pageSize
+            );
+            $urls[$page] = $url;
+        }
+
+        return (new CurlWrapper())->multiGet($urls, $this->defaultHeader);
+
+    }
 }
