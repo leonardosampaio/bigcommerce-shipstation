@@ -212,6 +212,16 @@ async function search()
 }
 
 window.onload = () => {
+
+    let wrapper1 = document.getElementById('wrapper1');
+    let wrapper2 = document.getElementById('wrapper2');
+    wrapper1.onscroll = function() {
+        wrapper2.scrollLeft = wrapper1.scrollLeft;
+    };
+    wrapper2.onscroll = function() {
+        wrapper1.scrollLeft = wrapper2.scrollLeft;
+    };
+
     $( "#begin" ).datepicker({
         uiLibrary: 'bootstrap4',
         format: 'mm/dd/yyyy'

@@ -151,6 +151,21 @@ th {
     width: 10px;
 }
 
-.scroll{
-    overflow-x: auto;
+#wrapper1, #wrapper2{
+    overflow-x: scroll; overflow-y:hidden;
+}
+#wrapper1{
+    height: 20px;
+}
+#wrapper2{
+    height: 600px;
+}
+#div1 {
+    width:150%;
+    height: 20px;
+}
+#div2 {
+    width:150%;
+    height: 600px;
+    overflow: auto;
 }
