@@ -8,6 +8,9 @@ class BigCommerceConsumer {
     private $storeHash;
     private $defaultHeader;
 
+    /**
+     * https://developer.bigcommerce.com/api-docs/getting-started/authentication/authenticating-bigcommerce-apis
+     */
     public function __construct($baseUrl, $storeHash, $authToken)
     {
         $this->baseUrl = $baseUrl;

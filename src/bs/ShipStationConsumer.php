@@ -6,6 +6,9 @@ class ShipStationConsumer {
     private $baseUrl;
     private $defaultHeader;
 
+    /**
+     * https://www.shipstation.com/docs/api/requirements/#authentication
+     */
     public function __construct($baseUrl, $apiKey, $apiSecret)
     {
         $this->baseUrl = $baseUrl;

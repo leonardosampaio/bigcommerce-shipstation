@@ -3,7 +3,9 @@ namespace bs;
 
 use FastRoute\RouteParser\Std;
 use stdClass;
-
+/**
+ * Uses a file (avoiding concurrency) to save state of the /orders request progress
+ */
 class Progress {
 
     private $tempFile = __DIR__.'/../../temp/progress.json';

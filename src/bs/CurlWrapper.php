@@ -6,6 +6,9 @@ use stdClass;
 
 class CurlWrapper {
 
+    /**
+     * Initializes a curl consumer (https://www.php.net/manual/function.curl-init)
+    */
     private function getInit($url, $headers, &$outputHeaders)
     {
         $consumer = curl_init();
@@ -42,44 +45,10 @@ class CurlWrapper {
         return $consumer;
     }
 
-    public function get($url, $headers = null)
-    {
-        $result = new stdClass();
-        $tryAgain = false;
-        do
-        {
-            $outputHeaders = array();
-            $consumer = $this->getInit($url, $headers, $outputHeaders);
-
-            $response = 
-                explode("\r\n\r\n", curl_errno($consumer) ? curl_errno($consumer) : curl_exec($consumer), 2);
-            $httpcode = curl_getinfo($consumer, CURLINFO_HTTP_CODE);
-            $responseHeaders = 
-                !empty($outputHeaders) ? $outputHeaders : array();
-
-            if (isset($responseHeaders['x-rate-limit-remaining']) &&
-                $responseHeaders['x-rate-limit-remaining'] < 2)
-            {
-                $sleepFor = isset($responseHeaders['x-rate-limit-reset']) ?
-                    $responseHeaders['x-rate-limit-reset'] : 60;
-                sleep($sleepFor);
-                $tryAgain = true;
-            }
-            else
-            {
-                $result->httpcode = $httpcode;
-                $result->response = in_array(substr($response[1],0,1),['{','[']) ?
-                    json_decode($response[1]) : $response[1];
-                $tryAgain = false;
-            }
-
-            curl_close($consumer);
-
-        } while ($tryAgain);
-
-        return $result;
-    }
-
+    /**
+     * Parallel curl GET requests. If the server sends a rate limiting header,
+     * pauses for the defined time before retrying
+    */
     public function multiGet($urls, $headers = null)
     {
         $result = array();
