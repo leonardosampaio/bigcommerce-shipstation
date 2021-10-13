@@ -1,4 +1,6 @@
 {
     "adminUser":"",
-    "adminPassword":""
+    "adminPassword":"",
+    "timezone":"America/Denver",
+    "memoryLimit":"1024M"
 }

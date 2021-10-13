@@ -82,7 +82,7 @@ async function loadProgress() {
 
     console.log('progress', progress);
 
-    if (progress.key && progress.value)
+    if (progress.key)
     {
         let complement = '';
         if (progress.key == 'orders')
@@ -169,7 +169,7 @@ async function search()
 
             if (order.products)
             {
-                console.log('products',order.products);
+                // console.log('products',order.products);
             }
 
             count++;

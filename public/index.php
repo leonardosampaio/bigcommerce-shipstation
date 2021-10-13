@@ -8,8 +8,31 @@ use bs\ShipStationConsumer;
 use bs\Configuration;
 use bs\Progress;
 
-ini_set('memory_limit', '1024M');
-date_default_timezone_set('America/Denver');
+$applicationConfig = (new Configuration())->getApplication();
+
+if (isset($applicationConfig->error))
+{
+    die($applicationConfig->error);
+}
+
+if (!isset($applicationConfig) ||
+    !isset($applicationConfig->adminUser) ||
+    !isset($applicationConfig->adminPassword))
+{
+    die('Invalid application configuration');
+}
+
+if (isset($applicationConfig->memoryLimit))
+{
+    ini_set('memory_limit', $applicationConfig->memoryLimit);
+}
+
+if (isset($applicationConfig->timezone))
+{
+    date_default_timezone_set($applicationConfig->timezone);
+}
+
+//kill curl threads on connection abort
 ob_implicit_flush();
 
 $app = AppFactory::create();
@@ -17,8 +40,12 @@ $app = AppFactory::create();
 //if in subpath
 $app->setBasePath('/bs');
 
+//show errors
 $app->addErrorMiddleware(true, true, true);
 
+/**
+ * Get customers ids from a group id
+ */
 function getCustomersInGroup($bigCommerceConfig, $groupId, $pageSize, $useCache)
 {
     $groupCacheFile = __DIR__.'/../cache/customers-in-group_'.$groupId.'.json';
@@ -77,6 +104,9 @@ function getCustomersInGroup($bigCommerceConfig, $groupId, $pageSize, $useCache)
     return $group;
 }
 
+/**
+ * Get all groups ids by customer id
+ */
 function getCustomersGroups($bigCommerceConfig, $pageSize, $useCache)
 {
     $groupCacheFile = __DIR__.'/../cache/customers-groups.json';
@@ -140,12 +170,12 @@ function getCustomersGroups($bigCommerceConfig, $pageSize, $useCache)
     return $customersGroups;
 }
 
-function getShipment($shipStationCommerceConfig, $createDateStart, $createDateEnd, $request)
+/**
+ * Get all shipments between start and end dates
+ */
+function getShipment($shipStationCommerceConfig, $createDateStart, $createDateEnd, $useCache)
 {
     $cacheFile = __DIR__.'/../cache/shipment_'.$createDateStart.'_'.$createDateEnd.'.json';
-
-    $useCache = isset($request->getQueryParams()['shipmentsUsingCache']) ?
-        $request->getQueryParams()['shipmentsUsingCache'] == 'true' : null;
 
     if ($useCache && file_exists($cacheFile))
     {
@@ -199,13 +229,13 @@ function getShipment($shipStationCommerceConfig, $createDateStart, $createDateEn
     return $allShipments;
 }
 
-function getProducts($bigCommerceConfig, $ordersIds, $request)
+/**
+ * Get all products from orders ids
+ */
+function getProducts($bigCommerceConfig, $ordersIds, $useCache)
 {
     $totalProducts = array();
 
-    $useCache = isset($request->getQueryParams()['productsUsingCache']) ?
-        $request->getQueryParams()['productsUsingCache'] == 'true' : null;
-    
     if ($useCache)
     {
         foreach($ordersIds as $k => $orderId)
@@ -249,15 +279,38 @@ function getProducts($bigCommerceConfig, $ordersIds, $request)
         $allPagesHaveProducts = !empty((array)$multiProducts) && isset($multiProducts[end($ids)]);
         foreach($multiProducts as $orderId => $products)
         {
+            $productsFiltered = array();
+            foreach($products as $product)
+            {
+                $productFiltered = new stdClass();
+                $productFiltered->applied_discounts = $product->applied_discounts;
+                $productFiltered->base_cost_price   = $product->base_cost_price;
+                $productFiltered->total_ex_tax      = $product->total_ex_tax;
+                $productFiltered->total_inc_tax     = $product->total_inc_tax;
+                $productFiltered->total_tax         = $product->total_tax;
+
+                $productsFiltered[] = $productFiltered;
+            }
+
             $cacheFile = __DIR__.'/../cache/products-in-order_'.$orderId.'.json';
-            if ($products)
+
+            if ($productsFiltered)
             {
                 file_put_contents(
                     $cacheFile,
-                    json_encode($products)
+                    json_encode($productsFiltered)
                 );
             }
-            $totalProducts[$orderId] = $products;
+
+            if (!isset($totalProducts[$orderId]))
+            {
+                $totalProducts[$orderId] = $productsFiltered;
+            }
+            else
+            {
+                $totalProducts[$orderId] =
+                    array_merge($totalProducts[$orderId], $productsFiltered);
+            }
         }
         
         $currentIndex += $bigCommerceConfig->parallelConnections;
@@ -269,9 +322,10 @@ function getProducts($bigCommerceConfig, $ordersIds, $request)
 
 $app->get('/orders', function (Request $request, Response $response, $args) {
 
+    session_start();
+
     (new Progress())->clean();
 
-    session_start();
     if (!isset($_SESSION['user']))
     {
         return $response->withJson(['error'=>'Unauthorized']);
@@ -354,7 +408,17 @@ $app->get('/orders', function (Request $request, Response $response, $args) {
         {
             foreach($orders as $order)
             {
-                $totalOrders[$order->id] = $order;
+                $filteredOrder = new stdClass();
+                $filteredOrder->id = $order->id;
+                $filteredOrder->base_shipping_cost = $order->base_shipping_cost;
+                $filteredOrder->subtotal_ex_tax = $order->subtotal_ex_tax;
+                $filteredOrder->total_ex_tax = $order->total_ex_tax;
+                $filteredOrder->total_tax = $order->total_tax;
+                $filteredOrder->total_inc_tax = $order->total_inc_tax;
+                $filteredOrder->store_credit_amount = $order->store_credit_amount;
+                $filteredOrder->discount_amount = $order->discount_amount;
+
+                $totalOrders[$order->id] = $filteredOrder;
 
                 if (isset($customersGroups[$order->customer_id]))
                 {
@@ -367,13 +431,19 @@ $app->get('/orders', function (Request $request, Response $response, $args) {
 
     } while ($allPagesHaveOrders);
 
-    $productsFromOrders = getProducts($bigCommerceConfig, array_keys($totalOrders), $request);
+    $productsUsingCache = isset($request->getQueryParams()['productsUsingCache']) ?
+        $request->getQueryParams()['productsUsingCache'] == 'true' : null;
+
+    $productsFromOrders = getProducts($bigCommerceConfig, array_keys($totalOrders), $productsUsingCache);
+
+    $shipmentsUsingCache = isset($request->getQueryParams()['shipmentsUsingCache']) ?
+        $request->getQueryParams()['shipmentsUsingCache'] == 'true' : null;
 
     $shipmentsBetweenDates = getShipment(
         $shipStationCommerceConfig,
         $request->getQueryParams()['minDateCreated'],
         $request->getQueryParams()['maxDateCreated'],
-        $request);
+        $shipmentsUsingCache);
     $shipments = array();    
     foreach ($shipmentsBetweenDates as $shipment)
     {
@@ -382,7 +452,10 @@ $app->get('/orders', function (Request $request, Response $response, $args) {
             $shipments[$shipment->orderNumber] =  array();
         }
 
-        $shipments[$shipment->orderNumber][] = $shipment;
+        $filteredShipment = new stdClass();
+        $filteredShipment->shipmentCost = $shipment->shipmentCost;
+
+        $shipments[$shipment->orderNumber][] = $filteredShipment;
     }    
 
     foreach($totalOrders as $k => &$order)
@@ -413,24 +486,10 @@ $app->get('/orders', function (Request $request, Response $response, $args) {
     return $response->withJson($totalOrders);
 });
 
-$app->get('/', function (Request $request, Response $response, $args) {
+$app->get('/', function (Request $request, Response $response, $args) use ($applicationConfig){
 
     session_start();
     
-    $applicationConfig = (new Configuration())->getApplication();
-
-    if (isset($applicationConfig->error))
-    {
-        die($applicationConfig->error);
-    }
-
-    if (!isset($applicationConfig) ||
-        !isset($applicationConfig->adminUser) ||
-        !isset($applicationConfig->adminPassword))
-    {
-        die('Invalid application configuration');
-    }
-
     if(isset($_SESSION['user']) || (
 	    isset($_SERVER['PHP_AUTH_USER']) && $_SERVER['PHP_AUTH_USER'] == $applicationConfig->adminUser &&
       	isset($_SERVER['PHP_AUTH_PW']) && $_SERVER['PHP_AUTH_PW'] == $applicationConfig->adminPassword
