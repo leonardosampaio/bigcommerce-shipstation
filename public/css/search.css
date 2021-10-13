@@ -151,21 +151,12 @@ th {
     width: 10px;
 }
 
-#wrapper1, #wrapper2{
-    overflow-x: scroll; overflow-y:hidden;
-}
-#wrapper1{
-    height: 20px;
-}
 #wrapper2{
+    overflow-x: scroll; overflow-y:hidden;
     height: 600px;
 }
-#div1 {
-    width:180%;
-    height: 20px;
-}
 #div2 {
-    width:180%;
+    display: inline-block;
     height: 600px;
     overflow: auto;
 }
