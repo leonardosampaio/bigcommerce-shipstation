@@ -2,5 +2,6 @@
     "baseUrl":"https://ssapi.shipstation.com",
     "api_key":"",
     "api_secret":"",
-    "rateLimitSleepTime":1.5
+    "pageSize":250,
+    "parallelConnections":10
 }

@@ -169,3 +169,7 @@ th {
     height: 600px;
     overflow: auto;
 }
+
+.modal-backdrop.show {
+    opacity: 0.8;
+}

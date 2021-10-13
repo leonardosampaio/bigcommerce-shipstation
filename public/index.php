@@ -41,7 +41,8 @@ function getCustomersInGroup($bigCommerceConfig, $groupId, $pageSize, $useCache)
             $lastPage = 1;
             if ($currentPage > 1)
             {
-                $lastPage = $totalPages > ($currentPage + 4) ? $currentPage + 4 : $totalPages;
+                $lastPage = $totalPages > ($currentPage + ($bigCommerceConfig->parallelConnections-1)) ?
+                    $currentPage + ($bigCommerceConfig->parallelConnections-1) : $totalPages;
             }
 
             $multiGroup = 
@@ -53,20 +54,15 @@ function getCustomersInGroup($bigCommerceConfig, $groupId, $pageSize, $useCache)
     
             foreach($multiGroup as $page => $groupCustomers)
             {
-                $group = array_merge($group, $groupCustomers->data);
+                foreach($groupCustomers->data as $customer)
+                {
+                    $group[] = $customer->id;
+                }
             }
             
             $totalPages = end($multiGroup)->meta->pagination->total_pages;
             (new Progress())->update('customers in group ' . $groupId, (int)($currentPage / ($totalPages ? $totalPages : 1) * 100));
             $currentPage = $totalPages != 0 ? end($multiGroup)->meta->pagination->current_page + 1 : 1;
-    
-            if ($currentPage != $totalPages &&
-                isset($bigCommerceConfig->rateLimitSleepTime) &&
-                $bigCommerceConfig->rateLimitSleepTime > 0)
-            {
-                //seconds
-                sleep($bigCommerceConfig->rateLimitSleepTime);
-            }
     
         } while ($currentPage <= $totalPages);
     
@@ -87,7 +83,7 @@ function getCustomersGroups($bigCommerceConfig, $pageSize, $useCache)
 
     if ($useCache && file_exists($groupCacheFile))
     {
-        return json_decode(
+        return (array)json_decode(
                 file_get_contents($groupCacheFile));
     }
 
@@ -99,7 +95,7 @@ function getCustomersGroups($bigCommerceConfig, $pageSize, $useCache)
 
         (new Progress())->update('customers in groups', $currentPage);
 
-        $lastPage = $currentPage+4;
+        $lastPage = $currentPage+($bigCommerceConfig->parallelConnections-1);
 
         (new Progress())->update('orders', $currentPage);
 
@@ -116,29 +112,20 @@ function getCustomersGroups($bigCommerceConfig, $pageSize, $useCache)
         {
             foreach($groups as $group)
             {
-                //TODO only $group->id == 12?
                 $customers = getCustomersInGroup(
                     $bigCommerceConfig, $group->id, $pageSize, $useCache);
-                foreach($customers as $customer)
+                foreach($customers as $customerId)
                 {
-                    if (!isset($customersGroups[$customer->id]))
+                    if (!isset($customersGroups[$customerId]))
                     {
-                        $customersGroups[$customer->id] = array();
+                        $customersGroups[$customerId] = array();
                     }
-                    $customersGroups[$customer->id][] = $group->id;
+                    $customersGroups[$customerId][] = $group->id;
                 }
             }
         }
         
-        $currentPage += 5;
-
-        if ($allPagesHaveGroups &&
-            isset($bigCommerceConfig->rateLimitSleepTime) &&
-            $bigCommerceConfig->rateLimitSleepTime > 0)
-        {
-            //seconds
-            sleep($bigCommerceConfig->rateLimitSleepTime);
-        }
+        $currentPage += $bigCommerceConfig->parallelConnections;
 
     } while ($allPagesHaveGroups);
     
@@ -176,28 +163,28 @@ function getShipment($shipStationCommerceConfig, $createDateStart, $createDateEn
     do {
         echo "\n";
 
-        $shipments = 
+        $lastPage = 1;
+        if ($currentPage > 1)
+        {
+            $lastPage = $totalPages > ($currentPage + ($shipStationCommerceConfig->parallelConnections-1)) ?
+                $currentPage + ($shipStationCommerceConfig->parallelConnections-1) : $totalPages;
+        }
+
+        $multiShipments = 
             (new ShipStationConsumer(
                 $shipStationCommerceConfig->baseUrl,
                 $shipStationCommerceConfig->api_key,
                 $shipStationCommerceConfig->api_secret))
-            ->getShipments($createDateStart, $createDateEnd, $currentPage, $shipStationCommerceConfig->pageSize);
+            ->getShipments($createDateStart, $createDateEnd, $currentPage, $lastPage, $shipStationCommerceConfig->pageSize);
 
-        $allShipments = array_merge($allShipments, $shipments->response->shipments);
-
-        $totalPages = $shipments->response->pages;
-        (new Progress())->update('shipments from orders', (int)($currentPage / ($totalPages ? $totalPages : 1) * 100));
-        
-        if ($totalPages != 0 &&
-            $currentPage != $totalPages && 
-            isset($shipStationCommerceConfig->rateLimitSleepTime) &&
-            $shipStationCommerceConfig->rateLimitSleepTime > 0)
+        foreach($multiShipments as $page => $shipments)
         {
-            //seconds
-            sleep($shipStationCommerceConfig->rateLimitSleepTime);
+            $allShipments = array_merge($allShipments, $shipments->shipments);
         }
 
-        $currentPage = $totalPages != 0 ? $shipments->response->page + 1 : 1;
+        $totalPages = end($multiShipments)->pages;
+        (new Progress())->update('shipments from orders', (int)($currentPage / ($totalPages ? $totalPages : 1) * 100));
+        $currentPage = $totalPages != 0 ? end($multiShipments)->page + 1 : 1;
 
     } while($currentPage <= $totalPages);
 
@@ -247,7 +234,7 @@ function getProducts($bigCommerceConfig, $ordersIds, $request)
     {
         echo "\n";
 
-        $ids = array_slice($ordersIds, $currentIndex-1, 5);
+        $ids = array_slice($ordersIds, $currentIndex-1, $bigCommerceConfig->parallelConnections);
 
         (new Progress())->update('products in orders', (int)(($currentIndex-1) / sizeof($ordersIds) * 100));
 
@@ -273,15 +260,7 @@ function getProducts($bigCommerceConfig, $ordersIds, $request)
             $totalProducts[$orderId] = $products;
         }
         
-        $currentIndex += 5;
-
-        if ($allPagesHaveProducts &&
-            isset($bigCommerceConfig->rateLimitSleepTime) &&
-            $bigCommerceConfig->rateLimitSleepTime > 0)
-        {
-            //seconds
-            sleep($bigCommerceConfig->rateLimitSleepTime);
-        }
+        $currentIndex += $bigCommerceConfig->parallelConnections;
 
     } while ($allPagesHaveProducts && sizeof($ordersIds) > $currentIndex);
 
@@ -358,7 +337,7 @@ $app->get('/orders', function (Request $request, Response $response, $args) {
     {
         echo "\n";
 
-        $lastPage = $currentPage+4;
+        $lastPage = $currentPage+($bigCommerceConfig->parallelConnections-1);
 
         (new Progress())->update('orders', $currentPage);
 
@@ -384,15 +363,7 @@ $app->get('/orders', function (Request $request, Response $response, $args) {
             }
         }
         
-        $currentPage += 5;
-
-        if ($allPagesHaveOrders &&
-            isset($bigCommerceConfig->rateLimitSleepTime) &&
-            $bigCommerceConfig->rateLimitSleepTime > 0)
-        {
-            //seconds
-            sleep($bigCommerceConfig->rateLimitSleepTime);
-        }
+        $currentPage += $bigCommerceConfig->parallelConnections;
 
     } while ($allPagesHaveOrders);
 

@@ -44,22 +44,6 @@ function formatCurrency(marketCap)
     return 'THB ' + finalValue + finalSymbol;
 }
 
-function splitWebsites(urlsStr)
-{
-    let html = '';
-
-    let arr = urlsStr.split(" ");
-    urlsStr.split(" ").forEach((url,k)=>{
-        html += '<a href="'+url+'" target="_blank">'+url+'</a>';
-        if (k+1 != arr.length)
-        {
-            html += '<br>';
-        }
-    });
-    
-    return html;
-}
-
 function download_table_as_csv(table_id, separator = ',') {
     var rows = document.querySelectorAll('table#' + table_id + ' tr');
     var csv = [];
@@ -85,12 +69,18 @@ function download_table_as_csv(table_id, separator = ',') {
     document.body.removeChild(link);
 }
 
+function setLoadingDescription(text, key, complement)
+{
+    document.getElementById('statusText').innerText = 
+        text + key + complement;
+}
+
 var finished = false;
 async function loadProgress() {
     const response = await fetch('./progress.php');
     const progress = await response.json();
 
-    console.log(progress);
+    console.log('progress', progress);
 
     if (progress.key && progress.value)
     {
@@ -103,8 +93,7 @@ async function loadProgress() {
             complement = ' ('+progress.value+'%)';
         }
     
-        document.getElementById('statusText').innerText = 
-            'Retrieving ' + progress.key + complement;
+        setLoadingDescription('Retrieving ', progress.key, complement);
     }
 
     
@@ -208,6 +197,7 @@ async function search()
             document.getElementById('tableBody').appendChild(novo);
         }
     }
+    setLoadingDescription('Retrieving orders', '', '');
     modal.hide();
 }
 

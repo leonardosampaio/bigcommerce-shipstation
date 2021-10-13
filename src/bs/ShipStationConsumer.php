@@ -16,17 +16,22 @@ class ShipStationConsumer {
     /**
      * https://www.shipstation.com/docs/api/shipments/list/
     */
-    public function getShipments($createDateStart, $createDateEnd, $page, $pageSize)
+    public function getShipments($createDateStart, $createDateEnd, $beginPage, $endPage, $pageSize)
     {
-        $url = sprintf(
-            $this->baseUrl . 
-            '/shipments?createDateStart=%s&createDateEnd=%s&includeShipmentItems=true&page=%d&pageSize=%d&sortBy=CreateDate&sortDir=DESC',
-            $createDateStart,
-            $createDateEnd,
-            (int)$page,
-            (int)$pageSize
-        );
+        $urls = array();
+        for ($page=$beginPage; $page <= $endPage; $page++)
+        {
+            $url = sprintf(
+                $this->baseUrl . 
+                '/shipments?createDateStart=%s&createDateEnd=%s&includeShipmentItems=true&page=%d&pageSize=%d&sortBy=CreateDate&sortDir=DESC',
+                $createDateStart,
+                $createDateEnd,
+                (int)$page,
+                (int)$pageSize
+            );
+            $urls[$page] = $url;
+        }
 
-        return (new CurlWrapper())->get($url, $this->defaultHeader);
+        return (new CurlWrapper())->multiGet($urls, $this->defaultHeader);
     }
 }

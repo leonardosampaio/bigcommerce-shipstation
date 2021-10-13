@@ -2,5 +2,6 @@
     "store":"",
     "baseUrl":"https://api.bigcommerce.com/stores",
     "access_token":"",
-    "rateLimitSleepTime":0
+    "pageSize":250,
+    "parallelConnections":10
 }
