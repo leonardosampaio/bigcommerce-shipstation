@@ -161,11 +161,11 @@ th {
     height: 600px;
 }
 #div1 {
-    width:150%;
+    width:180%;
     height: 20px;
 }
 #div2 {
-    width:150%;
+    width:180%;
     height: 600px;
     overflow: auto;
 }

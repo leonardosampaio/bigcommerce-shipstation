@@ -22,23 +22,19 @@ if (!isset($applicationConfig) ||
     die('Invalid application configuration');
 }
 
-if (isset($applicationConfig->memoryLimit))
-{
-    ini_set('memory_limit', $applicationConfig->memoryLimit);
-}
-
-if (isset($applicationConfig->timezone))
-{
-    date_default_timezone_set($applicationConfig->timezone);
-}
+ini_set('memory_limit', $applicationConfig->memoryLimit);
+date_default_timezone_set($applicationConfig->timezone);
 
 //kill curl threads on connection abort
 ob_implicit_flush();
 
 $app = AppFactory::create();
 
-//if in subpath
-$app->setBasePath('/bs');
+//if in subpath this needs to be different from "/"
+if (isset($applicationConfig->serverPath))
+{
+    $app->setBasePath($applicationConfig->serverPath);
+}
 
 //show errors
 $app->addErrorMiddleware(true, true, true);
@@ -73,11 +69,11 @@ function getCustomersInGroup($bigCommerceConfig, $groupId, $pageSize, $useCache)
             }
 
             $multiGroup = 
-            (new BigCommerceConsumer(
-                $bigCommerceConfig->baseUrl,
-                $bigCommerceConfig->store,
-                $bigCommerceConfig->access_token))
-            ->getCustomersInGroup($groupId, $currentPage, $lastPage, $pageSize);
+                (new BigCommerceConsumer(
+                    $bigCommerceConfig->baseUrl,
+                    $bigCommerceConfig->store,
+                    $bigCommerceConfig->access_token))
+                ->getCustomersInGroup($groupId, $currentPage, $lastPage, $pageSize);
     
             foreach($multiGroup as $page => $groupCustomers)
             {
@@ -130,12 +126,12 @@ function getCustomersGroups($bigCommerceConfig, $pageSize, $useCache)
         (new Progress())->update('orders', $currentPage);
 
         $multiGroups = 
-        (new BigCommerceConsumer(
-            $bigCommerceConfig->baseUrl,
-            $bigCommerceConfig->store,
-            $bigCommerceConfig->access_token))
-        ->getCustomerGroups(
-            $currentPage, $lastPage, $pageSize);
+            (new BigCommerceConsumer(
+                $bigCommerceConfig->baseUrl,
+                $bigCommerceConfig->store,
+                $bigCommerceConfig->access_token))
+            ->getCustomerGroups(
+                $currentPage, $lastPage, $pageSize);
 
         $allPagesHaveGroups = !empty((array)$multiGroups) && isset($multiGroups[$lastPage]);
         foreach($multiGroups as $page => $groups)
@@ -269,12 +265,12 @@ function getProducts($bigCommerceConfig, $ordersIds, $useCache)
         (new Progress())->update('products in orders', (int)(($currentIndex-1) / sizeof($ordersIds) * 100));
 
         $multiProducts = 
-        (new BigCommerceConsumer(
-            $bigCommerceConfig->baseUrl,
-            $bigCommerceConfig->store,
-            $bigCommerceConfig->access_token))
-        ->getProductsInOrders(
-            $ids, 1, $bigCommerceConfig->pageSize);
+            (new BigCommerceConsumer(
+                $bigCommerceConfig->baseUrl,
+                $bigCommerceConfig->store,
+                $bigCommerceConfig->access_token))
+            ->getProductsInOrders(
+                $ids, 1, $bigCommerceConfig->pageSize);
 
         $allPagesHaveProducts = !empty((array)$multiProducts) && isset($multiProducts[end($ids)]);
         foreach($multiProducts as $orderId => $products)
@@ -396,12 +392,12 @@ $app->get('/orders', function (Request $request, Response $response, $args) {
         (new Progress())->update('orders', $currentPage);
 
         $multiOrders = 
-        (new BigCommerceConsumer(
-            $bigCommerceConfig->baseUrl,
-            $bigCommerceConfig->store,
-            $bigCommerceConfig->access_token))
-        ->getOrders(
-            $currentPage, $lastPage, $minDateCreated, $maxDateCreated, $pageSize);
+            (new BigCommerceConsumer(
+                $bigCommerceConfig->baseUrl,
+                $bigCommerceConfig->store,
+                $bigCommerceConfig->access_token))
+            ->getOrders(
+                $currentPage, $lastPage, $minDateCreated, $maxDateCreated, $pageSize);
 
         $allPagesHaveOrders = !empty((array)$multiOrders) && isset($multiOrders[$lastPage]);
         foreach($multiOrders as $page => $orders)
