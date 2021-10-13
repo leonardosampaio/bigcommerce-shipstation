@@ -26,30 +26,12 @@ function initSignal()
     finished = false;
 }
 
-function formatCurrency(marketCap)
-{
-    let symbols = {'k':3, 'M':6, 'B': 9, 'T':12}
-    let finalSymbol = '';
-    let finalValue = marketCap;
-    for (let [symbol, power] of Object.entries(symbols)) {
-        if (marketCap / Math.pow(10,power) > 1)
-        {
-            finalSymbol = symbol;
-            finalValue = (marketCap / Math.pow(10,power)).toFixed(2);
-        }
-        else {
-            break;
-        }
-    }
-    return 'THB ' + finalValue + finalSymbol;
-}
-
 function download_table_as_csv(table_id, separator = ',') {
     var rows = document.querySelectorAll('table#' + table_id + ' tr');
     var csv = [];
     for (var i = 0; i < rows.length; i++) {
         var row = [], cols = rows[i].querySelectorAll('td, th');
-        for (var j = 0; j < cols.length-1; j++) {
+        for (var j = 0; j <= cols.length-1; j++) {
             var data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, '').replace(/(\s\s)/gm, ' ')
             data = data.replace(/"/g, '""');
             row.push('"' + data + '"');
@@ -58,7 +40,12 @@ function download_table_as_csv(table_id, separator = ',') {
     }
     var csv_string = csv.join('\n');
 
-    var filename = 'export_' + new Date().toLocaleDateString() + '.csv';
+    var filename = 
+        'orders_' +
+        document.querySelector('#begin').value.replaceAll('/','') + 
+        '_' +
+        document.querySelector('#end').value.replaceAll('/','') + 
+        '.csv';
     var link = document.createElement('a');
     link.style.display = 'none';
     link.setAttribute('target', '_blank');
@@ -163,41 +150,46 @@ async function search()
             novo.querySelector('.total_inc_tax').textContent = order.total_inc_tax;
             novo.querySelector('.store_credit_amount').textContent = order.store_credit_amount;
             novo.querySelector('.discount_amount').textContent = order.discount_amount;
-            novo.querySelector('.shipmentCost').textContent = 
+
+            let productsAppliedDiscounts = 0;
+            let productsBaseCostPrice = 0;
+            let productsTotalExTax = 0;
+            let productsTotalIncTax = 0;
+            let productsTotalTax = 0;
+            
+            if (order.products)
+            {
+                order.products.forEach(product => {
+                    if (product.applied_discounts)
+                    {
+                        product.applied_discounts.forEach(discount => {
+                            productsAppliedDiscounts+=parseFloat(discount.amount);
+                        });
+                    }
+                    productsBaseCostPrice+=parseFloat(product.base_cost_price);
+                    productsTotalExTax+=parseFloat(product.total_ex_tax);
+                    productsTotalIncTax+=parseFloat(product.total_inc_tax);
+                    productsTotalTax+=parseFloat(product.total_tax);
+                });
+            }
+
+            novo.querySelector('.products_applied_discounts').textContent = productsAppliedDiscounts.toFixed(2);
+            novo.querySelector('.products_base_cost_price').textContent = productsBaseCostPrice.toFixed(2);
+            novo.querySelector('.products_total_ex_tax').textContent = productsTotalExTax.toFixed(2);
+            novo.querySelector('.products_total_inc_tax').textContent = productsTotalIncTax.toFixed(2);
+            novo.querySelector('.products_total_tax').textContent = productsTotalTax.toFixed(2);
+
+            novo.querySelector('.shipstation_shipmentCost').textContent = 
                 totalShipStationCost != 0 ? totalShipStationCost : '';
             
 
-            if (order.products)
-            {
-                // console.log('products',order.products);
-            }
-
             count++;
-
-            // novo.querySelector('.name').textContent = order.end_name;
-            // novo.querySelector('.website').innerHTML = order.end_website ? splitWebsites(order.end_website) : '';
-            // novo.querySelector('.orderbase_url').href = 'https://www.orderbase.com/price/' + order.end_name.toLowerCase().replace(' ', '-');
-
-            // novo.querySelector('.description').textContent = order.end_description;
-
-            // novo.querySelector('.base').textContent = order.end_base;
-
-            // let marketCap = order.end_market_cap && order.end_market_cap > 0 
-            //     ? order.end_market_cap : '';
-
-            // if (marketCap)
-            // {
-            //     marketCap = formatCurrency(marketCap)
-            // }
-
-            // novo.querySelector('.market_cap').textContent = marketCap;
-            // novo.querySelector('.launched_at').textContent = 
-            //     order.end_launched_at ? moment(order.end_launched_at, "YYYY-MM-DD").format("DD/MM/YYYY") : '';
 
             document.getElementById('tableBody').appendChild(novo);
         }
     }
     setLoadingDescription('Retrieving orders', '', '');
+    document.getElementById("csv").disabled = false;
     modal.hide();
 }
 

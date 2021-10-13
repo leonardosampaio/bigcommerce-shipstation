@@ -1,4 +1,7 @@
 <?php
+/**
+ * Reads progress json file
+ */
 
 $tempFile = __DIR__.'/../temp/progress.json';
 

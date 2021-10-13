@@ -7,6 +7,7 @@ test.*
 configuration/*.json
 cache/*.json
 temp/*.json
+entregas
 
 # Cache and logs (Symfony2)
 /app/cache/*
