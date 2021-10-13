@@ -435,10 +435,12 @@ $app->get('/orders', function (Request $request, Response $response, $args) {
     $shipmentsUsingCache = isset($request->getQueryParams()['shipmentsUsingCache']) ?
         $request->getQueryParams()['shipmentsUsingCache'] == 'true' : null;
 
+    $shipmentsEndDate = date('Y-m-d', strtotime($request->getQueryParams()['maxDateCreated'] . " +15 day"));
+
     $shipmentsBetweenDates = getShipment(
         $shipStationCommerceConfig,
         $request->getQueryParams()['minDateCreated'],
-        $request->getQueryParams()['maxDateCreated'],
+        $shipmentsEndDate,
         $shipmentsUsingCache);
     $shipments = array();    
     foreach ($shipmentsBetweenDates as $shipment)
