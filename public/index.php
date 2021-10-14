@@ -23,6 +23,7 @@ if (!isset($applicationConfig) ||
 }
 
 ini_set('memory_limit', $applicationConfig->memoryLimit);
+ini_set('max_execution_time', '0');
 date_default_timezone_set($applicationConfig->timezone);
 
 //kill curl threads on connection abort
