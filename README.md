@@ -9,6 +9,7 @@ Leonardo Sampaio (leonardors@gmail.com)
 2. php7.4-curl
 3. php7.4-json
 4. composer
+5. Apache: activate mod rewrite (`sudo a2enmod rewrite`) and AllowOverride All in apache2.conf
 
 ## Instalation
 
