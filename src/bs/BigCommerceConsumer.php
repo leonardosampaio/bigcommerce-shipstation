@@ -75,7 +75,7 @@ class BigCommerceConsumer {
         {
             $url = sprintf(
                 $this->baseUrl . 
-                "/%s/v2/orders?min_date_created=%s&max_date_created=%s&page=%d&limit=%d&sort=date_created:desc",
+                "/%s/v2/orders?min_date_created=%s&max_date_created=%s&page=%d&limit=%d&sort=date_created:desc&is_deleted=false",
                 $this->storeHash,
                 $minDateCreated,
                 $maxDateCreated,

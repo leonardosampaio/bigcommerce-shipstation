@@ -414,6 +414,7 @@ $app->get('/orders', function (Request $request, Response $response, $args) {
                 $filteredOrder->total_inc_tax = $order->total_inc_tax;
                 $filteredOrder->store_credit_amount = $order->store_credit_amount;
                 $filteredOrder->discount_amount = $order->discount_amount;
+                $filteredOrder->coupon_discount = $order->coupon_discount;
 
                 $totalOrders[$order->id] = $filteredOrder;
 

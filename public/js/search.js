@@ -150,6 +150,7 @@ async function search()
             novo.querySelector('.total_inc_tax').textContent = order.total_inc_tax;
             novo.querySelector('.store_credit_amount').textContent = order.store_credit_amount;
             novo.querySelector('.discount_amount').textContent = order.discount_amount;
+            novo.querySelector('.coupon_discount').textContent = order.coupon_discount;
 
             let productsAppliedDiscounts = 0;
             let productsBaseCostPrice = 0;
