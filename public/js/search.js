@@ -182,6 +182,9 @@ async function search()
 
             novo.querySelector('.shipstation_shipmentCost').textContent = 
                 totalShipStationCost != 0 ? totalShipStationCost : '';
+
+            novo.querySelector('.profit_loss').textContent =
+                (order.total_inc_tax - order.total_tax - productsBaseCostPrice - totalShipStationCost).toFixed(2);
             
 
             count++;
