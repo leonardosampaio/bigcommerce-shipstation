@@ -167,7 +167,7 @@ async function search()
                             productsAppliedDiscounts+=parseFloat(discount.amount);
                         });
                     }
-                    productsBaseCostPrice+=parseFloat(product.base_cost_price);
+                    productsBaseCostPrice+=(parseFloat(product.base_cost_price) * parseFloat(product.quantity));
                     productsTotalExTax+=parseFloat(product.total_ex_tax);
                     productsTotalIncTax+=parseFloat(product.total_inc_tax);
                     productsTotalTax+=parseFloat(product.total_tax);

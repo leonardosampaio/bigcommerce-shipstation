@@ -285,6 +285,7 @@ function getProducts($bigCommerceConfig, $ordersIds, $useCache)
                 $productFiltered->total_ex_tax      = $product->total_ex_tax;
                 $productFiltered->total_inc_tax     = $product->total_inc_tax;
                 $productFiltered->total_tax         = $product->total_tax;
+                $productFiltered->quantity          = $product->quantity;
 
                 $productsFiltered[] = $productFiltered;
             }
