@@ -2,7 +2,6 @@
 
 Orders report in CSV from BigCommmerce and ShipStation API calls.
 
-Leonardo Sampaio (leonardors@gmail.com)
 ## Dependencies
 
 1. PHP 7.4+
